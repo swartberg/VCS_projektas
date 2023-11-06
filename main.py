@@ -9,7 +9,7 @@ def brand_selector():
     selected_brand = input("Select brand: ")
     brand_url = ""
     
-    if selected_brand.isalpha() == False:
+    if not selected_brand.isalpha():
         print("Please enter a valid brand name")
         return None
     elif selected_brand.lower() == "apple":
@@ -23,38 +23,55 @@ def brand_selector():
     return brand_url  
 
 def scrape_website(url):
-    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36 Edge/12.246"}
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36 Edge/12.246"
+    }
     html = requests.get(url=url, headers=headers)
     bs_html = BeautifulSoup(html.content, "html.parser")
 
-    all_products = bs_html.find("div", attrs={"class":"catalog-taxons-products-container__grid-row"})
-    products_info = all_products.findAll("div", attrs={"class":"catalog-taxons-product__hover"})
+    all_products = bs_html.find("div", attrs={"class": "catalog-taxons-products-container__grid-row"})
+
+    if all_products is None:
+        return None
+
+    products_info = all_products.findAll("div", attrs={"class": "catalog-taxons-product__hover"})
 
     list_product_name = []
     list_product_price = []
-    
+
     for idx in range(0, len(products_info)):
         product_name = products_info[idx].img["alt"].replace("Mobilusis telefonas ", "")
         product_price = products_info[idx].span.text.strip().replace("\n", "").replace("/ vnt.", "").replace("€", "").replace(",", ".").replace(" ", "")
         list_product_name.append(product_name)
         list_product_price.append(float(product_price))
-    
+
     df["Name"] = list_product_name
     df["Price"] = list_product_price
 
 base_url = "https://www.senukai.lt/c/telefonai-plansetiniai-kompiuteriai/mobilieji-telefonai/5nt"
-url_pages = 1
-
+existing_pages = None
 brand_url = None
 
 while brand_url is None:
     brand_url = brand_selector()
 
+url_pages = input("Select number of pages to scrape")
+
+if not url_pages.isnumeric() or int(url_pages) < 1:
+    print(f'{url_pages} is not a valid page number. Default value of 1 was set')
+    url_pages = 1
+
 for page_number in range(1, url_pages + 1):
     url = f"{brand_url}&page={page_number}"
     df = pd.DataFrame()
     scrape_website(url)
-    combined_df = pd.concat([combined_df, df], ignore_index=True)
+
+    if df.empty:
+        if existing_pages is not None:
+            break
+    else:
+        combined_df = pd.concat([combined_df, df], ignore_index=True)
+        existing_pages = page_number
 
 avg_price = combined_df['Price'].mean()
 avg_result = f"The average price is {round(avg_price, 2)} €"
@@ -68,6 +85,11 @@ max_price = combined_df["Price"].max()
 max_index = combined_df['Price'].idxmax()
 max_row = combined_df.loc[max_index, "Name"]
 max_result = f"The highest price is {max_price} €:\n {max_row}\n"
+
+if existing_pages < url_pages:
+    print(f"You wanted to scrape {url_pages} pages, but only {existing_pages} pages with products were found")
+else:
+    print(f"{existing_pages} pages were scraped")
 
 print(min_result, '\n', max_result, '\n', avg_result)
 display(combined_df)
