@@ -55,11 +55,13 @@ brand_url = None
 while brand_url is None:
     brand_url = brand_selector()
 
-url_pages = input("Select number of pages to scrape")
+url_pages = input("Select number of pages to scrape: ")
 
 if not url_pages.isnumeric() or int(url_pages) < 1:
     print(f'{url_pages} is not a valid page number. Default value of 1 was set')
     url_pages = 1
+else:
+    url_pages = int(url_pages)
 
 for page_number in range(1, url_pages + 1):
     url = f"{brand_url}&page={page_number}"
